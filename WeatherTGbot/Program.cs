@@ -7,7 +7,9 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Newtonsoft.Json;
 
-
+var botClient = new TelegramBotClient("Your_API Telegram");
+var apiKey = "Your_API OpenWeather"; // Обновите ключ API здесь
+string city = "Moscow"; // Город
 using CancellationTokenSource cts = new();
 
 // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
