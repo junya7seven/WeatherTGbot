@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
-
-public class WeatherData
+﻿public class WeatherData
 {
     public Coord coord { get; set; }
     public List<Weather> weather { get; set; }
