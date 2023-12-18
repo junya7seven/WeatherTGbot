@@ -2,20 +2,6 @@
 
 public class WeatherProgram
 {
-    private Timer timer;
-    public void StartTimer(string apiKey,string city)
-    {
-        DateTime now = DateTime.Now;
-        DateTime firstRunTime = new DateTime(now.Year, now.Month, now.Day, 0, 0, 3);
-
-        if (now > firstRunTime)
-        {
-            firstRunTime = firstRunTime.AddMinutes(1);
-        }
-
-        TimeSpan interval = TimeSpan.FromSeconds(5); // Интервал 5 секунд
-        timer = new Timer(async (_) => await GetWeatherDataAsync(city, apiKey), null, TimeSpan.Zero, interval);
-    }
     // Метод для получения данных о погоде
     public static async Task<string> GetWeatherDataAsync(string city, string apiKey)
     {

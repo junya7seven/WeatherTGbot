@@ -1,4 +1,7 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -10,7 +13,6 @@ using static System.Net.Mime.MediaTypeNames;
 var botClient = new TelegramBotClient("Your_Api");
 var apiKey = "Your_Api"; // Обновите ключ API здесь
 string city = "Набережные Челны";
-
 using CancellationTokenSource cts = new();
 
 // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
@@ -34,42 +36,77 @@ Console.ReadLine();
 // Send cancellation request to stop bot
 cts.Cancel();
 
-WeatherProgram weatherProgram = new WeatherProgram();
-weatherProgram.StartTimer(city, apiKey);
+
+// Остальной код вашего приложения Telegram Bot остается таким же, как ранее.
+
 async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
 {
-    // Only process Message updates: https://core.telegram.org/bots/api#message
-    if (update.Message is not { } message)
-        return;
-    // Only process text messages
-    if (message.Text is not { } messageText)
+    if (update.Message is not { } message || message.Text is not { } messageText)
         return;
 
     var chatId = message.Chat.Id;
 
     Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
+
     try
     {
-        string weatherMessage =  await WeatherProgram.GetWeatherDataAsync(city, apiKey);
+        using (var dbContext = new BotDbContext())
+        {
+            var existingChat = dbContext.UserChats.FirstOrDefault(uc => uc.ChatId == chatId);
+            if (existingChat == null && messageText.StartsWith("/getID"))
+            {
+                var userChat = new UserChat { ChatId = chatId };
+                dbContext.UserChats.Add(userChat);
+                await dbContext.SaveChangesAsync();
 
-        if (messageText.StartsWith("/weather"))
-        { 
-            // Send the message to the user
-            Message sentMessage = await botClient.SendTextMessageAsync(
-                chatId: chatId,
-                text: weatherMessage,
-                cancellationToken: cancellationToken);
+                await botClient.SendTextMessageAsync(chatId: chatId, text: "Ваш ID был сохранён.", cancellationToken: cancellationToken);
+            }
+            else if (existingChat != null && messageText.StartsWith("/getID"))
+            {
+                await botClient.SendTextMessageAsync(chatId: chatId, text: "Ваш ID уже был сохранён.", cancellationToken: cancellationToken);
+            }
+
+            string weatherMessage = await WeatherProgram.GetWeatherDataAsync(city, apiKey);
+            string currencyMessage = await GetCurrency.GetCurrencyasync();
+
+            if (messageText.StartsWith("/weather"))
+            {
+                await botClient.SendTextMessageAsync(chatId: chatId, text: weatherMessage, cancellationToken: cancellationToken);
+            }
+            else if (messageText.StartsWith("/currency"))
+            {
+                await botClient.SendTextMessageAsync(chatId: chatId, text: currencyMessage, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                await botClient.SendTextMessageAsync(chatId: chatId, text: "Да-да? Лучше введи команду из доступного списка", cancellationToken: cancellationToken);
+            }
         }
+    }
+    catch (DbUpdateException ex)
+    {
+        // Обработка ошибки сохранения данных
+        Console.WriteLine($"Ошибка сохранения данных: {ex.Message}");
+
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"Внутреннее исключение: {ex.InnerException.Message}");
+            if (ex.InnerException.InnerException != null)
+            {
+                Console.WriteLine($"Внутреннее внутреннее исключение: {ex.InnerException.InnerException.Message}");
+            }
+        }
+
+        await botClient.SendTextMessageAsync(chatId: chatId, text: $"Произошла ошибка сохранения данных: {ex.Message}", cancellationToken: cancellationToken);
     }
     catch (Exception ex)
     {
-        // Send an error message to the user if an exception occurs
-        await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: $"Произошла ошибка при получении данных о погоде: {ex.Message}",
-            cancellationToken: cancellationToken);
+        // Обработка других исключений
+        Console.WriteLine($"Произошла ошибка: {ex.Message}");
+        await botClient.SendTextMessageAsync(chatId: chatId, text: $"Произошла ошибка: {ex.Message}", cancellationToken: cancellationToken);
     }
 }
+
 Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
 {
     var ErrorMessage = exception switch
@@ -82,4 +119,20 @@ Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, 
     Console.WriteLine(ErrorMessage);
     return Task.CompletedTask;
 }
+public class BotDbContext : DbContext
+{
+    public DbSet<UserChat> UserChats { get; set; }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+                optionsBuilder.UseSqlite("Data Source=mydatabase.db"); // Путь к файлу базы данных SQLite
+
+    }
+}
+public class UserChat
+{
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
+    public long ChatId { get; set; }
+}
