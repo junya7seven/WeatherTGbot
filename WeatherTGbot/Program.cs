@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
+using WeatherTGbot;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
@@ -10,9 +11,10 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using static System.Net.Mime.MediaTypeNames;
 
-var botClient = new TelegramBotClient("Your_Api");
-var apiKey = "Your_Api"; // Обновите ключ API здесь
+var botClient = new TelegramBotClient("6948054071:AAHswM8cDEpKQ4y18Byj7iwKM_DbV5a0C-M");
+var apiKey = "908bf0611586f5cbdefb8540ccf08a54"; // Обновите ключ API здесь
 string city = "Набережные Челны";
+
 using CancellationTokenSource cts = new();
 
 // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
@@ -45,43 +47,42 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         return;
 
     var chatId = message.Chat.Id;
+    using (var dbContext = new BotDbContext())
+    {
 
+        var userChat = new UserChat { ChatId = chatId };
+        var existingChat = dbContext.UserChats.FirstOrDefault(UserChat => UserChat.ChatId == chatId);
+        if (existingChat == null)
+        {
+            dbContext.UserChats.Add(userChat);
+            await dbContext.SaveChangesAsync();
+        }
+        else
+        { }
+    }
     Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
 
     try
     {
-        using (var dbContext = new BotDbContext())
+        string weatherMessage = await WeatherProgram.GetWeatherDataAsync(city, apiKey);
+        string currencyMessage = await GetCurrency.GetCurrencyasync();
+        if (messageText.StartsWith("/weather"))
         {
-            var existingChat = dbContext.UserChats.FirstOrDefault(uc => uc.ChatId == chatId);
-            if (existingChat == null && messageText.StartsWith("/getID"))
-            {
-                var userChat = new UserChat { ChatId = chatId };
-                dbContext.UserChats.Add(userChat);
-                await dbContext.SaveChangesAsync();
-
-                await botClient.SendTextMessageAsync(chatId: chatId, text: "Ваш ID был сохранён.", cancellationToken: cancellationToken);
-            }
-            else if (existingChat != null && messageText.StartsWith("/getID"))
-            {
-                await botClient.SendTextMessageAsync(chatId: chatId, text: "Ваш ID уже был сохранён.", cancellationToken: cancellationToken);
-            }
-
-            string weatherMessage = await WeatherProgram.GetWeatherDataAsync(city, apiKey);
-            string currencyMessage = await GetCurrency.GetCurrencyasync();
-
-            if (messageText.StartsWith("/weather"))
-            {
-                await botClient.SendTextMessageAsync(chatId: chatId, text: weatherMessage, cancellationToken: cancellationToken);
-            }
-            else if (messageText.StartsWith("/currency"))
-            {
-                await botClient.SendTextMessageAsync(chatId: chatId, text: currencyMessage, cancellationToken: cancellationToken);
-            }
-            else
-            {
-                await botClient.SendTextMessageAsync(chatId: chatId, text: "Да-да? Лучше введи команду из доступного списка", cancellationToken: cancellationToken);
-            }
+            await botClient.SendTextMessageAsync(chatId: chatId, text: weatherMessage, cancellationToken: cancellationToken);
         }
+        else if (messageText.StartsWith("/currency"))
+        {
+            await botClient.SendTextMessageAsync(chatId: chatId, text: currencyMessage, cancellationToken: cancellationToken);
+        }
+        else if(messageText.StartsWith("asd"))
+        {
+
+        }
+        else
+        {
+            await botClient.SendTextMessageAsync(chatId: chatId, text: "Да-да? Лучше введи команду из доступного списка", cancellationToken: cancellationToken);
+        }
+
     }
     catch (DbUpdateException ex)
     {
@@ -97,6 +98,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
             }
         }
 
+        // Отправляем сообщение об ошибке пользователю
         await botClient.SendTextMessageAsync(chatId: chatId, text: $"Произошла ошибка сохранения данных: {ex.Message}", cancellationToken: cancellationToken);
     }
     catch (Exception ex)
@@ -119,20 +121,20 @@ Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, 
     Console.WriteLine(ErrorMessage);
     return Task.CompletedTask;
 }
-public class BotDbContext : DbContext
-{
-    public DbSet<UserChat> UserChats { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+
+/*using (var dbContext = new BotDbContext())
+{
+    // Проверяем, существует ли запись для этого чата в базе данных
+    var existingChat = dbContext.UserChats.FirstOrDefault(UserChat => UserChat.ChatId == chatId);
+    if (existingChat == null)
     {
-                optionsBuilder.UseSqlite("Data Source=mydatabase.db"); // Путь к файлу базы данных SQLite
-
+        var userChat = new UserChat { ChatId = chatId };
+        dbContext.UserChats.Add(userChat);
+        await dbContext.SaveChangesAsync();
     }
-}
-public class UserChat
-{
-    [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public int Id { get; set; }
-    public long ChatId { get; set; }
-}
+    else
+    {
+        return;
+    }
+}*/
