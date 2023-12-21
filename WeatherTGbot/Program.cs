@@ -47,7 +47,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         return;
 
     var chatId = message.Chat.Id;
-    using (var dbContext = new BotDbContext())
+    /*using (var dbContext = new BotDbContext())
     {
 
         var userChat = new UserChat { ChatId = chatId };
@@ -59,7 +59,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         }
         else
         { }
-    }
+    }*/
     Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
 
     try

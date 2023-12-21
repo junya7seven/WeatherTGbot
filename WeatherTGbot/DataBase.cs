@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-
+/*
 namespace WeatherTGbot
 {
 
@@ -20,10 +20,6 @@ namespace WeatherTGbot
             optionsBuilder.UseSqlite("Data Source=mydatabase.db"); // Путь к файлу базы данных SQLite
 
         }
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<UserChat>().Property(b => b.Id).ValueGeneratedNever();
-        }
     }
     public class UserChat
     {
@@ -35,4 +31,4 @@ namespace WeatherTGbot
 
     }
 
-}
+}*/
